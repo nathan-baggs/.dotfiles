@@ -1,0 +1,23 @@
+[core]
+	autocrlf = input
+	editor = nvim
+	pager = delta	
+[user]
+	email = # fill this in
+	name = # fill this in
+[delta]
+	navigate = true
+	line-numbers = true
+	side-by-side = true
+[interactive]
+    diffFilter = delta --color-only
+[alias]
+	lol = log --graph --decorate --pretty=oneline --abbrev-commit --all
+	fap = fetch --all --prune
+	br = branch
+	st = status
+[merge]
+	ff = false
+	conflictstyle = zdiff3
+[init]
+	defaultBranch = main
