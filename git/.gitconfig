@@ -15,7 +15,7 @@
 	lol = log --graph --decorate --pretty=oneline --abbrev-commit --all
 	fap = fetch --all --prune
 	br = branch
-	st = status
+	st = status -sb
 [merge]
 	ff = false
 	conflictstyle = zdiff3
