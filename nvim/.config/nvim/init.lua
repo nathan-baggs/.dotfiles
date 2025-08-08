@@ -154,6 +154,12 @@ vim.opt.cursorline = true
 -- Minimal number of screen lines to keep above and below the cursor.
 vim.opt.scrolloff = 10
 
+vim.diagnostic.config {
+  virtual_text = true,
+  signs = true,
+  float = { border = 'rounded' },
+}
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -726,8 +732,8 @@ require('lazy').setup({
       },
       formatters_by_ft = {
         lua = { 'stylua' },
-        cpp = { 'clang-format-18' },
-        c = { 'clang-format-18' },
+        --cpp = { 'clang-format-18' },
+        --c = { 'clang-format-18' },
         -- Conform can also run multiple formatters sequentially
         python = { 'ruff_format' },
         --
