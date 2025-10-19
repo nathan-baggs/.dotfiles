@@ -1,0 +1,6 @@
+git:
+  paging:
+    colorArg: never
+    pager: delta --dark --paging=never 
+    # pager: ydiff -p cat -s --wrap --width={{columnWidth}}   
+    useConfig: false
