@@ -419,6 +419,42 @@ do
 	vim.pack.add({ gh("folke/todo-comments.nvim") })
 	require("todo-comments").setup({ signs = false })
 
+	-- Indent scope guides (cursor region only), with rainbow colouring synced to rainbow-delimiters
+	vim.pack.add({ gh("lukas-reineke/indent-blankline.nvim") })
+	vim.pack.add({ gh("HiPhish/rainbow-delimiters.nvim") })
+
+	local rainbow_highlight = {
+		"RainbowRed",
+		"RainbowOrange",
+		"RainbowYellow",
+		"RainbowGreen",
+		"RainbowCyan",
+		"RainbowPurple",
+		"RainbowPink",
+	}
+
+	local ibl_hooks = require("ibl.hooks")
+	-- Re-register colours on every colorscheme change so they survive :colorscheme reloads
+	ibl_hooks.register(ibl_hooks.type.HIGHLIGHT_SETUP, function()
+		vim.api.nvim_set_hl(0, "RainbowRed", { fg = "#FF5555" })
+		vim.api.nvim_set_hl(0, "RainbowOrange", { fg = "#FFB86C" })
+		vim.api.nvim_set_hl(0, "RainbowYellow", { fg = "#F1FA8C" })
+		vim.api.nvim_set_hl(0, "RainbowGreen", { fg = "#50FA7B" })
+		vim.api.nvim_set_hl(0, "RainbowCyan", { fg = "#8BE9FD" })
+		vim.api.nvim_set_hl(0, "RainbowPurple", { fg = "#BD93F9" })
+		vim.api.nvim_set_hl(0, "RainbowPink", { fg = "#FF79C6" })
+		vim.api.nvim_set_hl(0, "IblIndent", { nocombine = true, fg = "NONE", bg = "NONE" })
+	end)
+
+	-- rainbow-delimiters uses the same highlight table for brackets
+	vim.g.rainbow_delimiters = { highlight = rainbow_highlight }
+
+	require("ibl").setup({
+		indent = { highlight = "IblIndent", char = "│" },
+		scope = { highlight = rainbow_highlight },
+	})
+
+	ibl_hooks.register(ibl_hooks.type.SCOPE_HIGHLIGHT, ibl_hooks.builtin.scope_highlight_from_extmark)
 	-- [[ mini.nvim ]]
 	--  A collection of various small independent plugins/modules
 	vim.pack.add({ gh("nvim-mini/mini.nvim") })
@@ -710,6 +746,20 @@ do
 					vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf }))
 				end, "[T]oggle Inlay [H]ints")
 			end
+
+			-- Switch between header and source file (clangd only)
+			if client and client.name == "clangd" then
+				map("<leader>ko", "<cmd>ClangdSwitchSourceHeader<CR>", "Switch Header/Source")
+				map("<leader>kv", function()
+					local params = { uri = vim.uri_from_bufnr(0) }
+					vim.lsp.buf_request(0, "textDocument/switchSourceHeader", params, function(err, result)
+						if err or not result then
+							return
+						end
+						vim.cmd("vsplit " .. vim.uri_to_fname(result))
+					end)
+				end, "Switch Header/Source (vsplit)")
+			end
 		end,
 	})
 
@@ -778,6 +828,7 @@ do
 		gh("mason-org/mason.nvim"),
 		gh("mason-org/mason-lspconfig.nvim"),
 		gh("WhoIsSethDaniel/mason-tool-installer.nvim"),
+		gh("dchinmay2/clangd_extensions.nvim"),
 	})
 
 	-- Automatically install LSPs and related tools to stdpath for Neovim
@@ -796,6 +847,7 @@ do
 	})
 
 	require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
+	require("clangd_extensions").setup({})
 
 	for name, server in pairs(servers) do
 		vim.lsp.config(name, server)
@@ -1043,8 +1095,6 @@ do
 		},
 	})
 
-	vim.pack.add({ gh("hiphish/rainbow-delimiters.nvim") })
-
 	vim.pack.add({ gh("obsidian-nvim/obsidian.nvim") })
 	pcall(function()
 		require("obsidian").setup({
@@ -1075,10 +1125,9 @@ do
 
 	require("minuet").setup({
 		provider = "openai_compatible",
-		notify = "verbose",
 		throttle = 1000,
 		debounce = 300,
-		request_timeout = 8,
+		request_timeout = 3,
 		n_completions = 1,
 		add_single_line_entry = true,
 
@@ -1155,9 +1204,7 @@ end, { desc = "[A]I toggle [i]nline completions (global)" })
 -- otherwise fall through to normal indent behaviour (<C-t>).
 vim.keymap.set("i", "<Tab>", function()
 	local vt = require("minuet.virtualtext")
-	-- extmark_id is hardcoded to 1 in minuet.virtualtext internals
-	local mark = vim.api.nvim_buf_get_extmark_by_id(0, vt.ns_id, 1, {})
-	if #mark > 0 then
+	if vt.action.is_visible() then
 		vt.action.accept()
 	else
 		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-t>", true, true, true), "n", false)
