@@ -1236,6 +1236,177 @@ do
 	--
 	--  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
 	-- require 'custom.plugins'
+
+	-- nvim-dap configuration for Windows/WSL cross-compilation
+	vim.pack.add({ gh("mfussenegger/nvim-dap") })
+	vim.pack.add({ gh("rcarriga/nvim-dap-ui") })
+	vim.pack.add({ gh("nvim-neotest/nvim-nio") })
+
+	local dap = require('dap')
+
+	dap.adapters.gdb = {
+		type = "executable",
+		command = "python3",
+		args = { vim.fn.expand("~/.config/nvim/gdb_wrapper.py") }
+	}
+
+	-- Get the windows absolute path of the root to help gdb find the sources
+	local win_root
+	local handle = io.popen('wslpath -w /')
+	if handle then
+		local result = handle:read("*a")
+		handle:close()
+		-- Remove trailing newline and trailing backslash
+		win_root = result:gsub("[\n\r]", ""):gsub("\\$", "")
+	end
+	win_root = win_root or "\\\\wsl.localhost\\Ubuntu"
+
+	-- Ensure the root ends with a backslash for substitute-path
+	local win_root_slash = win_root
+	if not win_root_slash:match("\\$") then
+		win_root_slash = win_root_slash .. "\\"
+	end
+
+	-- Get the windows absolute path of the root to help gdb find the sources
+	local win_root
+	local handle = io.popen('wslpath -w /')
+	if handle then
+		local result = handle:read("*a")
+		handle:close()
+		-- Remove trailing newline and trailing backslash
+		win_root = result:gsub("[\n\r]", ""):gsub("\\$", "")
+	end
+	win_root = win_root or "\\\\wsl.localhost\\Ubuntu"
+
+	-- Ensure the root ends with a backslash for substitute-path
+	local win_root_slash = win_root
+	if not win_root_slash:match("\\$") then
+		win_root_slash = win_root_slash .. "\\"
+	end
+
+
+	-- We need to tell Neovim how to handle UNC paths!
+	-- If Neovim is asked to open a file starting with \\wsl.localhost\Ubuntu\,
+	-- we can define an autocmd to strip it.
+	vim.api.nvim_create_autocmd("BufReadCmd", {
+		pattern = "\\\\wsl.localhost\\Ubuntu\\*",
+		callback = function(args)
+			local linux_path = args.file:gsub("\\\\wsl%.localhost\\Ubuntu", ""):gsub("\\", "/")
+			vim.cmd("edit " .. linux_path)
+		end
+	})
+	vim.api.nvim_create_autocmd("BufReadCmd", {
+		pattern = "\\\\wsl$\\Ubuntu\\*",
+		callback = function(args)
+			local linux_path = args.file:gsub("\\\\wsl%$\\Ubuntu", ""):gsub("\\", "/")
+			vim.cmd("edit " .. linux_path)
+		end
+	})
+	vim.api.nvim_create_autocmd("BufReadCmd", {
+		pattern = "//wsl.localhost/Ubuntu/*",
+		callback = function(args)
+			local linux_path = args.file:gsub("//wsl%.localhost/Ubuntu", "")
+			vim.cmd("edit " .. linux_path)
+		end
+	})
+	vim.api.nvim_create_autocmd("BufReadCmd", {
+		pattern = "//wsl$/Ubuntu/*",
+		callback = function(args)
+			local linux_path = args.file:gsub("//wsl%$/Ubuntu", "")
+			vim.cmd("edit " .. linux_path)
+		end
+	})
+
+	-- Cache the last used executable path
+	local last_exe = nil
+	dap.configurations.c = {
+		{
+			name = "Launch with Windows gdb.exe",
+			type = "gdb",
+			request = "launch",
+			program = function()
+				local default = last_exe or (vim.fn.getcwd() .. '/build/src/Debug/ufps.exe')
+				local exe_path = vim.fn.input('Path to executable: ', default, 'file')
+				last_exe = exe_path
+				local handle_exe = io.popen('wslpath -w ' .. exe_path)
+				if handle_exe then
+					local win_exe = handle_exe:read("*a"):gsub("[\n\r]", "")
+					handle_exe:close()
+					return win_exe
+				end
+				return exe_path
+			end,
+			stopAtBeginningOfMainSubprogram = false,
+			setupCommands = {
+				{
+					text = "-enable-pretty-printing",
+					description = "enable pretty printing",
+					ignoreFailures = false
+				}
+			}
+		},
+		{
+			name = "Attach to Windows gdbserver",
+			type = "gdb",
+			request = "attach",
+			target = "localhost:1234",
+			program = function()
+				local exe_path = vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+				local handle_exe = io.popen('wslpath -w ' .. exe_path)
+				if handle_exe then
+					local win_exe = handle_exe:read("*a"):gsub("[\n\r]", "")
+					handle_exe:close()
+					return win_exe
+				end
+				return exe_path
+			end,
+			cwd = win_root .. "${workspaceFolder}",
+		},
+	}
+	-- We need to deepcopy the config to avoid reference issues across different filetypes
+	dap.configurations.cpp = vim.deepcopy(dap.configurations.c)
+	dap.configurations.rust = vim.deepcopy(dap.configurations.c)
+
+	vim.keymap.set('n', '<F5>', function() require('dap').continue() end, { desc = 'Debug: Start/Continue' })
+	vim.keymap.set('n', '<F9>', function() require('dap').continue() end, { desc = 'Debug: Start/Continue' })
+	vim.keymap.set('n', '<F8>', function() require('dap').step_over() end, { desc = 'Debug: Step Over' })
+	vim.keymap.set('n', '<F7>', function() require('dap').step_into() end, { desc = 'Debug: Step Into' })
+	vim.keymap.set('n', '<F12>', function() require('dap').step_out() end, { desc = 'Debug: Step Out' })
+	vim.keymap.set('n', '<leader>b', function() require('dap').toggle_breakpoint() end, { desc = 'Debug: Toggle Breakpoint' })
+	vim.keymap.set('n', '<leader>dr', function() require('dap').repl.open() end, { desc = 'Debug: Open REPL' })
+	vim.keymap.set('n', '<leader>dw', function() require('dap').widgets.hover() end, { desc = 'Debug: Hover widget' })
+	vim.keymap.set('n', '<leader>du', function() require('dap').widgets.centered_float(require('dap.ui.variables').scopes) end, { desc = 'Debug: Scopes' })
+	vim.keymap.set('n', '<leader>de', function() require('dap.ui.widgets').hover() end, { desc = 'Debug: Evaluate' })
+	-- Disable automatic reading of launch.json which is crashing due to invalid trailing commas
+
+	-- Show variable values on hover
+	vim.keymap.set({'n', 'v'}, '<C-k>', function()
+		require('dap.ui.widgets').hover()
+	end, { desc = 'Debug: Show variable value' })
+	require('dap.ext.vscode').load_launchjs = function() end
+
+	-- Configure nvim-dap-ui
+	local dapui = require('dapui')
+	dapui.setup()
+
+	-- Open UI automatically when debugging starts
+	dap.listeners.before.attach.dapui_config = function()
+		dapui.open()
+	end
+	dap.listeners.before.launch.dapui_config = function()
+		dapui.open()
+	end
+	dap.listeners.before.event_terminated.dapui_config = function()
+		dapui.close()
+	end
+	dap.listeners.before.event_exited.dapui_config = function()
+		dapui.close()
+	end
+
+	-- Keymaps for dapui
+	vim.keymap.set('n', '<leader>dt', function() dapui.toggle() end, { desc = 'Debug: Toggle UI' })
+	vim.keymap.set('n', '<leader>de', function() dapui.eval() end, { desc = 'Debug: Eval' })
+	require('dap').providers.configs["dap.launch.json"] = nil
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
