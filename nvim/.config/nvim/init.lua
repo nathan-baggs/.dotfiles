@@ -258,9 +258,9 @@ vim.keymap.set("n", "<leader>p", "<cmd>Telescope commands<CR>", { desc = "Comman
 vim.keymap.set("n", "<C-W><C-V>[", ':exec "vert norm <C-V><C-W>["<CR>', { desc = "Vertical split tag" })
 vim.keymap.set("v", "<leader>cn", ":CarbonNow<CR>", { silent = true })
 
-vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 vim.opt.foldlevel = 99
+vim.opt.foldlevelstart = 99
+vim.opt.foldenable = true
 
 -- ============================================================
 -- SECTION 2: PLUGIN MANAGER INTRO
@@ -1114,6 +1114,47 @@ do
 
 	vim.pack.add({ gh("f-person/git-blame.nvim") })
 	vim.g.gitblame_enabled = 0
+
+	-- [[ nvim-ufo: modern folds via LSP/treesitter ]]
+	vim.pack.add({ gh("kevinhwang91/promise-async") })
+	vim.pack.add({ gh("kevinhwang91/nvim-ufo") })
+	require("ufo").setup({
+		provider_selector = function(_, _, _)
+			return { "treesitter", "indent" }
+		end,
+		fold_virt_text_handler = function(virtText, lnum, endLnum, width, truncate)
+			local diags = vim.diagnostic.get(0, { lnum = lnum })
+			for l = lnum + 1, endLnum - 1 do
+				vim.list_extend(diags, vim.diagnostic.get(0, { lnum = l }))
+			end
+			local diag_str = #diags > 0 and string.format(" ⚠ %d", #diags) or ""
+			local last_line = vim.api.nvim_buf_get_lines(0, endLnum - 1, endLnum, false)[1] or ""
+			local closing = last_line:match("^%s*(.-)%s*$") -- strip leading/trailing whitespace
+			local suffix = string.format("  ↙ %d lines%s  %s ", endLnum - lnum, diag_str, closing)
+			local targetWidth = width - vim.fn.strdisplaywidth(suffix)
+			local newVirt = {}
+			local curWidth = 0
+			for _, chunk in ipairs(virtText) do
+				local text = chunk[1]
+				local hl = chunk[2]
+				local w = vim.fn.strdisplaywidth(text)
+				if curWidth + w > targetWidth then
+					text = truncate(text, targetWidth - curWidth)
+					w = vim.fn.strdisplaywidth(text)
+				end
+				table.insert(newVirt, { text, hl })
+				curWidth = curWidth + w
+				if curWidth >= targetWidth then
+					break
+				end
+			end
+			table.insert(newVirt, { suffix, "MoreMsg" })
+			return newVirt
+		end,
+	})
+	vim.keymap.set("n", "zR", require("ufo").openAllFolds, { desc = "Open all folds" })
+	vim.keymap.set("n", "zM", require("ufo").closeAllFolds, { desc = "Close all folds" })
+	vim.keymap.set("n", "zp", require("ufo").peekFoldedLinesUnderCursor, { desc = "Peek fold" })
 end
 
 -- ============================================================
