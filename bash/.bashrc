@@ -130,6 +130,30 @@ source ~/.bash-powerline.sh
 export BAT_THEME="Dracula"
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
-export PATH="$PATH:/opt/nvim-linux64/bin"
+export PATH="$PATH:/opt/cbonsai/bin:/opt/fzf:/opt/lazygit:/opt/nvim-linux-x86_64/bin"
 
 set -o vi
+
+# ── Modern CLI tool aliases ──
+alias ls='eza --icons=always --color=always --group-directories-first'
+alias ll='eza -alF --icons=always --color=always --group-directories-first --git'
+alias la='eza -a --icons=always --color=always --group-directories-first'
+alias lt='eza -T --icons=always --color=always'
+alias ltree='eza -lT --icons=always --color=always --git-ignore'
+alias find='fd'
+alias du='dust'
+
+# ── vivid Dracula LS_COLORS ──
+export LS_COLORS="$(vivid generate dracula 2>/dev/null)"
+
+# ── zoxide (smarter cd) ──
+eval "$(zoxide init bash 2>/dev/null)"
+
+# ── atuin (shell history) ──
+eval "$(atuin init bash 2>/dev/null)"
+
+# ── direnv ──
+eval "$(direnv hook bash 2>/dev/null)"
+
+# ── fzf Dracula theme ──
+export FZF_DEFAULT_OPTS='--color=fg:#f8f8f2,bg:#282a36,hl:#bd93f9 --color=fg+:#f8f8f2,bg+:#44475a,hl+:#bd93f9 --color=info:#ffb86c,prompt:#50fa7b,pointer:#ff79c6 --color=marker:#ff79c6,spinner:#ffb86c,header:#6272a4'

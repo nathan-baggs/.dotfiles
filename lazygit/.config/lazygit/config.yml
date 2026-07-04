@@ -4,3 +4,15 @@ git:
     pager: delta --dark --paging=never 
     # pager: ydiff -p cat -s --wrap --width={{columnWidth}}   
     useConfig: false
+
+gui:
+  theme:
+    activeBorderColor: ["#bd93f9", "bold"]
+    inactiveBorderColor: ["#6272a4"]
+    optionsTextColor: ["#8be9fd"]
+    selectedLineBgColor: ["#44475a"]
+    cherryPickedCommitBgColor: ["#44475a"]
+    cherryPickedCommitFgColor: ["#bd93f9"]
+    unstagedChangesColor: ["#ff5555"]
+    defaultFgColor: ["#f8f8f2"]
+    searchingActiveBorderColor: ["#ffb86c"]

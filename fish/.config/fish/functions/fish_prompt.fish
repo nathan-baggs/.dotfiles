@@ -1,99 +1,133 @@
-function fish_prompt
-    # This prompt shows:
-    # - green lines if the last return command is OK, red otherwise
-    # - your user name, in red if root or yellow otherwise
-    # - your hostname, in cyan if ssh or blue otherwise
-    # - the current path (with prompt_pwd)
-    # - date +%X
-    # - the current virtual environment, if any
-    # - the current git status, if any, with fish_git_prompt
-    # - the current battery state, if any, and if your power cable is unplugged, and if you have "acpi"
-    # - current background jobs, if any
+function fish_prompt --description "Dracula prompt with Nerd Font glyphs, brackets and lines"
+    set -l last_status $status
 
-    # It goes from:
-    # ┬─[nim@Hattori:~]─[11:39:00]
-    # ╰─>$ echo here
-
-    # To:
-    # ┬─[nim@Hattori:~/w/dashboard]─[11:37:14]─[V:django20]─[G:master↑1|●1✚1…1]─[B:85%, 05:41:42 remaining]
-    # │ 2	15054	0%	arrêtée	sleep 100000
-    # │ 1	15048	0%	arrêtée	sleep 100000
-    # ╰─>$ echo there
-
-    set -l retc red
-    test $status = 0; and set retc green
-
-    set -q __fish_git_prompt_showupstream
-    or set -g __fish_git_prompt_showupstream auto
-
-    function _nim_prompt_wrapper
-        set retc $argv[1]
-        set field_name $argv[2]
-        set field_value $argv[3]
-
+    # ── Narrow terminal: collapse to single line ──
+    if test (tput cols) -lt 60
+        if test $last_status -eq 0
+            set_color 50fa7b
+        else
+            set_color ff5555
+        end
+        echo -n '❯ '
         set_color normal
-        set_color $retc
-        echo -n '─'
-        set_color -o green
-        echo -n '['
+        return
+    end
+
+    # ── Line prefix ──
+    set_color ff79c6
+    echo -n '┬'
+
+    # ── User segment ──
+    set_color normal
+    set_color ff79c6
+    echo -n '─['
+    set_color normal
+    set_color $fish_color_user
+    echo -n -s ' ' (whoami)
+    set_color ff79c6
+    echo -n ']'
+
+    # ── Host segment (SSH only) ──
+    if set -q SSH_TTY; and test -n "$SSH_TTY"
         set_color normal
-        test -n $field_name
-        and echo -n $field_name:
-        set_color $retc
-        echo -n $field_value
-        set_color -o green
+        set_color ff79c6
+        echo -n '─['
+        set_color normal
+        set_color $fish_color_host
+        echo -n -s ' ' (hostname -s 2>/dev/null || hostname)
+        set_color ff79c6
         echo -n ']'
     end
 
-    set_color $retc
-    echo -n '┬─'
-    set_color -o green
-    echo -n [
-    if test "$USER" = root -o "$USER" = toor
-        set_color -o red
-    else
-        set_color -o yellow
-    end
-    echo -n $USER
-    set_color -o white
-    echo -n :(prompt_pwd)
-    set_color -o green
+    # ── Directory segment ──
+    set_color normal
+    set_color ff79c6
+    echo -n '─['
+    set_color normal
+    set_color f1fa8c
+    echo -n -s ' ' (prompt_pwd)
+    set_color ff79c6
     echo -n ']'
 
-    # Date
-    _nim_prompt_wrapper $retc '' (date +%X)
+    # ── Git segment ──
+    if command git rev-parse --is-inside-work-tree >/dev/null 2>&1
+        set -l git_branch (command git branch --show-current 2>/dev/null)
+        if test -z "$git_branch"
+            set git_branch (command git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        end
+        if test -z "$git_branch"; or test "$git_branch" = HEAD
+            set git_branch (command git describe --tags --exact-match 2>/dev/null)
+        end
+        if test -z "$git_branch"
+            set git_branch (command git rev-parse --short HEAD 2>/dev/null)
+        end
 
-    # Virtual Environment
-    set -q VIRTUAL_ENV_DISABLE_PROMPT
-    or set -g VIRTUAL_ENV_DISABLE_PROMPT true
-    set -q VIRTUAL_ENV
-    and _nim_prompt_wrapper $retc V (basename "$VIRTUAL_ENV")
+        if test -n "$git_branch"
+            set -l git_status "$git_branch"
+            if command git status --porcelain 2>/dev/null | string length -q
+                set git_status "$git_status*"
+            else
+                set git_status "$git_status"
+            end
 
-    # git
-    set prompt_git (fish_git_prompt | string trim -c ' ()')
-    test -n "$prompt_git"
-    and _nim_prompt_wrapper $retc G $prompt_git
+            set -l ahead_behind (command git rev-list --count --left-right '@{upstream}...HEAD' 2>/dev/null)
+            if test -n "$ahead_behind"
+                set -l parts (string split \t -- "$ahead_behind")
+                if test (count $parts) -ge 2
+                    if test "$parts[2]" -gt 0
+                        set git_status "$git_status↑$parts[2]"
+                    end
+                    if test "$parts[1]" -gt 0
+                        set git_status "$git_status↓$parts[1]"
+                    end
+                end
+            end
 
-    # Battery status
-    type -q acpi
-    and test (acpi -a 2> /dev/null | string match -r off)
-    and _nim_prompt_wrapper $retc B (acpi -b | cut -d' ' -f 4-)
-
-    # New line
-    echo
-
-    # Background jobs
-    set_color normal
-    for job in (jobs)
-        set_color $retc
-        echo -n '│ '
-        set_color brown
-        echo $job
+            set_color normal
+            set_color ff79c6
+            echo -n '─['
+            set_color normal
+            set_color bd93f9
+            echo -n -s ' ' "$git_status"
+            set_color ff79c6
+            echo -n ']'
+        end
     end
-    set_color normal
-    set_color $retc
-    echo -n '╰─>'
-    set_color -o red
-    echo -n '$ '
+
+    # ── Python virtualenv segment ──
+    if set -q VIRTUAL_ENV
+        set_color normal
+        set_color ff79c6
+        echo -n '─['
+        set_color normal
+        set_color f1fa8c
+        echo -n -s ' ' (basename "$VIRTUAL_ENV")
+        set_color ff79c6
+        echo -n ']'
+    end
+
+    # ── Command duration segment ──
+    if set -q CMD_DURATION; and test "$CMD_DURATION" -ge 2000
+        set -l dur_sec (math "$CMD_DURATION / 1000")
+        set_color normal
+        set_color ff79c6
+        echo -n '─['
+        set_color normal
+        set_color 6272a4
+        echo -n -s ' ' "$dur_sec"s
+        set_color ff79c6
+        echo -n ']'
+    end
+
+    # ── Line 2: Prompt char ──
+    echo
+    set_color ff79c6
+    echo -n '╰─'
+    if test $last_status -eq 0
+        set_color 50fa7b
+    else
+        set_color ff5555
+    end
+    echo -n '❯ '
     set_color normal
 end

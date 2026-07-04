@@ -9,6 +9,14 @@
 	navigate = true
 	line-numbers = true
 	side-by-side = true
+	features = "dracula"
+	plus-style = "syntax #244a30"
+	minus-style = "syntax #5a2a3a"
+	plus-emph-style = "bold #3a7a4e"
+	minus-emph-style = "bold #7a3a4e"
+	line-numbers-minus-style = "#ff5555"
+	line-numbers-plus-style = "#50fa7b"
+	line-numbers-zero-style = "#6272a4"
 [interactive]
     diffFilter = delta --color-only
 [alias]
@@ -16,6 +24,17 @@
 	fap = fetch --all --prune
 	br = branch
 	st = status -sb
+	co = checkout
+	ci = commit
+	amend = commit --amend --no-edit
+	unstage = reset HEAD --
+	discard = checkout --
+	lg = log --graph --decorate --pretty=format:'%C(auto)%h %C(bold blue)%an%Creset %C(green)%ar%Creset %C(auto)%d%s' --all
+	rb = rebase
+	rs = restore
+	sw = switch
+	pu = push
+	pl = pull
 [merge]
 	ff = false
 	conflictstyle = zdiff3
